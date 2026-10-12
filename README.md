@@ -20,6 +20,10 @@ npm run demo
 Open <http://localhost:3000>, then from a terminal:
 
 ```bash
+curl localhost:8000/help
+```
+
+```bash
 curl localhost:8000/hello
 ```
 
@@ -73,6 +77,10 @@ In production, [cloudflare/worker.ts](cloudflare/worker.ts) replaces the local r
 Anyone who knows a tab's URL can send it requests. That's the point of the demo, but don't put
 anything sensitive behind it.
 
+The page also has a **Prompt for an AI** box with a Copy button. It explains, with this tab's real URL
+filled in, that the page is used through HTTP requests (`/help`, `/ui`, click and fill), not a
+browser, so you can paste it into any AI chat that can run `curl`.
+
 ## What the demo shows
 
 1. **A server running in the browser.** `src/component.ts` is a normal Hono app. It's built into
@@ -103,7 +111,7 @@ curl ──HTTP──▶ relay :8000 ──WebSocket──▶ browser tab
 
 | Route | What it does |
 | --- | --- |
-| `GET /` | Lists the routes |
+| `GET /help` (or `GET /`) | Lists the routes |
 | `GET /hello` | `{"message":"Hello from WebAssembly!"}` (same as the Hono docs) |
 | `POST /echo` | Shows the body in the page's echo panel and echoes it back |
 | `PUT /color/:color` | Sets the page's accent color; `400` if it isn't a valid CSS color |

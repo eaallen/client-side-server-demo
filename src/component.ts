@@ -1,4 +1,4 @@
-import { Hono } from 'hono'
+import { Hono, type Context } from 'hono'
 import { fire } from '@bytecodealliance/jco-std/wasi/0.2.12/http/adapters/hono/server'
 // Implemented by plain JS on the web page (see web/main.ts), declared in wit/component.wit
 import { log, echo, setColor, readNote, describeUi, interact } from 'demo:browser-server/page'
@@ -18,12 +18,13 @@ app.use(async (c, next) => {
   console.log(`<-- ${c.res.status}`)
 })
 
-app.get('/', (c) =>
+const help = (c: Context) =>
   c.text(
     [
       'Hello from a Hono server compiled to WebAssembly, running in a browser tab!',
       '',
       'Try:',
+      '  GET  /help             this message (same as GET /)',
       '  GET  /hello            JSON response (same as the Hono WASI docs)',
       '  POST /echo             body is shown on the web page and echoed back',
       '  PUT  /color/:color     changes the page accent color, e.g. /color/tomato',
@@ -32,8 +33,10 @@ app.get('/', (c) =>
       ...UI_ROUTES.map((line) => `  ${line}`),
       '',
     ].join('\n'),
-  ),
-)
+  )
+
+app.get('/', help)
+app.get('/help', help)
 
 app.get('/hello', (c) => c.json({ message: 'Hello from WebAssembly!' }))
 

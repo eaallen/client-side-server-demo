@@ -13,6 +13,8 @@ const echoEl = $<HTMLDivElement>('echo')
 const noteEl = $<HTMLTextAreaElement>('note')
 const serverStatus = $<HTMLSpanElement>('server-status')
 const tunnelStatus = $<HTMLSpanElement>('tunnel-status')
+const promptEl = $<HTMLPreElement>('ai-prompt')
+const copyBtn = $<HTMLButtonElement>('copy-prompt')
 
 type LogKind = 'info' | 'stdout' | 'stderr' | 'request' | 'page'
 
@@ -125,6 +127,46 @@ async function startServer() {
 
 type Server = Awaited<ReturnType<typeof startServer>>
 
+// --- The prompt an AI can be given to use this page (the URL is filled in on connect) ---
+
+const AI_PROMPT = `You can use a live web page by sending it HTTP requests. This is not a normal website: do not open it in a browser or scrape its HTML. A web server is running inside the page, in my open browser tab, and the page's buttons and text fields can be operated through it.
+
+Base URL: $URL
+
+Use curl or any HTTP client (not a browser tool). Every path below is added to the base URL. Requests only work while my tab is open: a 503 means the tab is closed, so ask me to reopen the page.
+
+Steps:
+1. GET $URL/help to see every route this server has.
+2. GET $URL/ui to see everything on the page that can be clicked or typed into. It returns JSON with "instructions" and "elements". Each element has a "ref" (like "e10"), its "role", its "name", the "section" it is in, its "disabled" state and the "actions" it supports.
+3. To use an element, send a request with its ref:
+   - click it: POST $URL/ui/<ref>/click
+   - type into a text field (replaces its text): POST $URL/ui/<ref>/fill with the text as a plain-text body, for example: curl -d 'some text' $URL/ui/<ref>/fill
+4. Each action replies with { "ok": true, "element": ... } showing the element afterwards, or { "ok": false, "error": ... } with status 400. Disabled elements cannot be clicked, the same as for a person.
+5. Refs change when the page reloads, and the page changes as you act, so GET $URL/ui again whenever you are unsure what is on screen. This is how you see the result of what you did.
+
+Rules: keep request bodies under 1 MB, do not send anything private to this page, and tell me what you did as you go.
+
+My task: `
+
+function setPrompt(url: string) {
+  promptEl.textContent = AI_PROMPT.replaceAll('$URL', url)
+  copyBtn.disabled = false
+}
+
+copyBtn.onclick = async () => {
+  let copied = false
+  try {
+    await navigator.clipboard.writeText(promptEl.textContent!)
+    copied = true
+  } catch {
+    // Clipboard API unavailable or blocked: select the text and try the legacy copy
+    getSelection()?.selectAllChildren(promptEl)
+    copied = document.execCommand('copy')
+  }
+  copyBtn.textContent = copied ? 'Copied!' : 'Selected: press Ctrl/Cmd+C'
+  setTimeout(() => (copyBtn.textContent = 'Copy prompt'), 2000)
+}
+
 // --- 3. Connect to the relay so requests from curl reach this tab ----------------
 
 type TunnelRequest = { id: string; method: string; url: string; headers: [string, string][]; body: string | null }
@@ -156,6 +198,7 @@ function connectTunnel(server: Server) {
     if (msg.type === 'info') {
       if (msg.id) storage.set(msg.id)
       $('curl-base').textContent = msg.tunnelUrl
+      setPrompt(msg.tunnelUrl)
       document.querySelectorAll('[data-curl]').forEach((el) => {
         el.textContent = (el as HTMLElement).dataset.curl!.replaceAll('$URL', msg.tunnelUrl)
       })

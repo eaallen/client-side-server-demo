@@ -139,6 +139,10 @@
       #log .msg { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
       .log-request .tag, .log-page .tag { color: var(--accent); }
       .log-stderr .msg { color: #d43c3c; }
+      .prompt-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-bottom: 8px; }
+      .prompt-head h2 { margin: 0; }
+      #ai-prompt { max-height: 260px; overflow: auto; white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; }
+      #copy-prompt { border-color: var(--accent); }
       .ttt { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
       .ttt-board {
         display: grid;
@@ -184,6 +188,7 @@
       <section>
         <h2><b>2</b> · curl it from your computer</h2>
         <p>Requests to <code id="curl-base">http://localhost:8000</code> are relayed to this tab.</p>
+        <pre data-curl="curl $URL/help">curl http://localhost:8000/help</pre>
         <pre data-curl="curl $URL/hello">curl http://localhost:8000/hello</pre>
         <pre data-curl="curl -d 'hi from my terminal' $URL/echo">curl -d 'hi from my terminal' http://localhost:8000/echo</pre>
         <pre data-curl="curl -X PUT $URL/color/tomato">curl -X PUT http://localhost:8000/color/tomato</pre>
@@ -191,6 +196,14 @@
         <pre data-curl="curl '$URL/log?msg=hello+page'">curl 'http://localhost:8000/log?msg=hello+page'</pre>
         <pre data-curl="curl $URL/ui">curl http://localhost:8000/ui</pre>
         <pre data-curl="curl -X POST $URL/ui/e10/click">curl -X POST http://localhost:8000/ui/e10/click</pre>
+      </section>
+
+      <section class="wide">
+        <div class="prompt-head">
+          <h2>Prompt for an AI <span class="sub">· paste it into a chat so an AI can use this site</span></h2>
+          <button type="button" id="copy-prompt" disabled>Copy prompt</button>
+        </div>
+        <pre id="ai-prompt">Connecting…</pre>
       </section>
 
       <section class="wide">
