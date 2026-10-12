@@ -1,0 +1,190 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Hono in the Browser</title>
+    <style>
+      :root {
+        --accent: #ff5b11;
+        --bg: #f7f7f5;
+        --panel: #ffffff;
+        --text: #1b1b1b;
+        --muted: #6b6b6b;
+        --border: #e3e3df;
+        --code-bg: #f0f0ec;
+        color-scheme: light dark;
+      }
+      @media (prefers-color-scheme: dark) {
+        :root {
+          --bg: #121212;
+          --panel: #1c1c1c;
+          --text: #ececec;
+          --muted: #9a9a9a;
+          --border: #2e2e2e;
+          --code-bg: #262626;
+        }
+      }
+      * { box-sizing: border-box; }
+      body {
+        margin: 0;
+        background: var(--bg);
+        color: var(--text);
+        font: 15px/1.5 system-ui, -apple-system, sans-serif;
+      }
+      header {
+        border-top: 4px solid var(--accent);
+        padding: 24px 16px 8px;
+        max-width: 1100px;
+        margin: 0 auto;
+        transition: border-color 0.3s;
+      }
+      h1 { margin: 0 0 4px; font-size: 24px; }
+      h1 span { color: var(--accent); transition: color 0.3s; }
+      h2 { margin: 0 0 12px; font-size: 15px; text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); }
+      h2 b { color: var(--accent); }
+      p { margin: 0 0 12px; }
+      .sub { color: var(--muted); }
+      main {
+        max-width: 1100px;
+        margin: 0 auto;
+        padding: 16px;
+        display: grid;
+        gap: 16px;
+        grid-template-columns: 1fr 1fr;
+      }
+      @media (max-width: 760px) {
+        main { grid-template-columns: 1fr; }
+      }
+      section {
+        background: var(--panel);
+        border: 1px solid var(--border);
+        border-radius: 10px;
+        padding: 16px;
+        min-width: 0;
+      }
+      section.wide { grid-column: 1 / -1; }
+      .status { display: flex; gap: 16px; flex-wrap: wrap; margin-bottom: 12px; }
+      .status div { display: flex; gap: 6px; align-items: center; }
+      [data-state]::before {
+        content: '';
+        display: inline-block;
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        margin-right: 6px;
+        background: var(--muted);
+      }
+      [data-state='ok']::before { background: #22a55b; }
+      [data-state='error']::before { background: #d43c3c; }
+      [data-state='pending']::before { animation: pulse 1s infinite; }
+      @keyframes pulse { 50% { opacity: 0.2; } }
+      code, pre { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; }
+      pre {
+        background: var(--code-bg);
+        border-radius: 6px;
+        padding: 8px 10px;
+        margin: 0 0 8px;
+        overflow-x: auto;
+        white-space: pre;
+      }
+      button {
+        font: inherit;
+        font-size: 13px;
+        padding: 6px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--code-bg);
+        color: var(--text);
+        cursor: pointer;
+      }
+      button:hover:not(:disabled) { border-color: var(--accent); }
+      button:disabled { opacity: 0.5; cursor: default; }
+      .buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+      #echo {
+        min-height: 72px;
+        padding: 12px;
+        border-radius: 6px;
+        border: 2px dashed var(--border);
+        font-size: 20px;
+        white-space: pre-wrap;
+        overflow-wrap: anywhere;
+        margin-bottom: 12px;
+      }
+      #echo:empty::before { content: 'POST something to /echo and it shows up here'; color: var(--muted); font-size: 14px; }
+      #echo.flash { animation: flash 0.8s ease-out; }
+      @keyframes flash { from { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); } }
+      textarea {
+        width: 100%;
+        min-height: 60px;
+        font: inherit;
+        padding: 8px;
+        border-radius: 6px;
+        border: 1px solid var(--border);
+        background: var(--bg);
+        color: var(--text);
+      }
+      label { display: block; font-size: 13px; color: var(--muted); margin-bottom: 4px; }
+      #log {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        max-height: 360px;
+        overflow-y: auto;
+        font: 13px/1.6 ui-monospace, SFMono-Regular, Menlo, monospace;
+      }
+      #log li { display: flex; gap: 10px; padding: 2px 0; border-bottom: 1px solid var(--border); }
+      #log time { color: var(--muted); flex: none; }
+      #log .tag { flex: none; width: 64px; color: var(--muted); }
+      #log .msg { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
+      .log-request .tag, .log-page .tag { color: var(--accent); }
+      .log-stderr .msg { color: #d43c3c; }
+    </style>
+  </head>
+  <body>
+    <header>
+      <h1>A <span>Hono</span> server running in this browser tab</h1>
+      <p class="sub">Hono compiled to a WASI WebAssembly component, transpiled with jco, and served from this page.</p>
+    </header>
+    <main>
+      <section>
+        <h2><b>1</b> · The server</h2>
+        <div class="status">
+          <div>wasm server: <span id="server-status" data-state="pending">starting…</span></div>
+          <div>relay: <span id="tunnel-status" data-state="pending">connecting…</span></div>
+        </div>
+        <p>Call the server right here in the page (no network, straight into the wasm):</p>
+        <div class="buttons">
+          <button data-try="GET /hello" disabled>GET /hello</button>
+          <button data-try="POST /echo" disabled>POST /echo</button>
+          <button data-try="GET /color/rebeccapurple" disabled>GET /color/rebeccapurple</button>
+          <button data-try="GET /note" disabled>GET /note</button>
+        </div>
+      </section>
+
+      <section>
+        <h2><b>2</b> · curl it from your computer</h2>
+        <p>Requests to <code id="curl-base">http://localhost:8000</code> are relayed to this tab.</p>
+        <pre data-curl="curl $URL/hello">curl http://localhost:8000/hello</pre>
+        <pre data-curl="curl -d 'hi from my terminal' $URL/echo">curl -d 'hi from my terminal' http://localhost:8000/echo</pre>
+        <pre data-curl="curl -X PUT $URL/color/tomato">curl -X PUT http://localhost:8000/color/tomato</pre>
+        <pre data-curl="curl $URL/note">curl http://localhost:8000/note</pre>
+        <pre data-curl="curl '$URL/log?msg=hello+page'">curl 'http://localhost:8000/log?msg=hello+page'</pre>
+      </section>
+
+      <section class="wide">
+        <h2><b>3</b> · The page, driven by the server</h2>
+        <label>Echo panel (written by <code>POST /echo</code>)</label>
+        <div id="echo"></div>
+        <label for="note">Note (read by <code>GET /note</code>)</label>
+        <textarea id="note">Type here, then curl /note</textarea>
+      </section>
+
+      <section class="wide">
+        <h2>Activity log <span class="sub">· console.log from inside the wasm, requests, and page calls</span></h2>
+        <ol id="log"></ol>
+      </section>
+    </main>
+    <script type="module" src="/main.js"></script>
+  </body>
+</html>

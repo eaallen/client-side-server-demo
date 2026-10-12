@@ -1,0 +1,32 @@
+{
+  "name": "client-side-server-demo",
+  "version": "1.0.0",
+  "description": "A Hono server compiled to WebAssembly (WASI) running inside a browser tab, reachable with curl",
+  "scripts": {
+    "build:component": "rolldown -c && jco componentize -w wit -o dist/component.wasm dist/component.js",
+    "build:transpile": "jco transpile dist/component.wasm -o dist/transpiled --name server --instantiation async",
+    "build:web": "rolldown -c rolldown.web.config.mjs",
+    "build": "npm run build:component && npm run build:transpile && npm run build:web",
+    "start": "node relay/server.mjs",
+    "demo": "npm run build && npm start",
+    "types": "jco guest-types wit -o types/generated -q",
+    "typecheck": "npm run types && tsc -p ."
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "module",
+  "dependencies": {
+    "@hono/node-server": "^1.19.17",
+    "@hono/node-ws": "^1.3.1",
+    "hono": "^4.13.13"
+  },
+  "devDependencies": {
+    "@bytecodealliance/componentize-js": "^0.23.0",
+    "@bytecodealliance/jco": "^1.37.0",
+    "@bytecodealliance/jco-std": "^0.7.0",
+    "@bytecodealliance/preview2-shim": "^0.28.0",
+    "rolldown": "^1.2.13",
+    "typescript": "^7.0.2"
+  }
+}

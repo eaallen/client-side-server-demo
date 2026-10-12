@@ -1,0 +1,19 @@
+package demo:browser-server;
+
+/// Functions the host web page gives to the WebAssembly server.
+/// This is the bridge from Hono (inside wasm) to regular JS on the page.
+interface page {
+    /// Append a line to the activity log on the page.
+    log: func(message: string);
+    /// Show text in the big "echo" panel on the page.
+    echo: func(text: string);
+    /// Change the page's accent color. Returns false if it isn't a valid CSS color.
+    set-color: func(color: string) -> bool;
+    /// Read whatever the visitor has typed into the note box on the page.
+    read-note: func() -> string;
+}
+
+world component {
+    import page;
+    export wasi:http/incoming-handler@0.2.12;
+}
