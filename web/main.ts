@@ -4,6 +4,7 @@
 import { WASIShim } from '@bytecodealliance/preview2-shim/instantiation'
 import { InMemoryHttpClient } from '@bytecodealliance/preview2-shim/http'
 import { instantiate } from '../dist/transpiled/server.js'
+import { describeUi, interact, type UiElement } from './ui-automation.ts'
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T
 
@@ -60,6 +61,18 @@ const page = {
   readNote() {
     return noteEl.value
   },
+  describeUi() {
+    const elements = describeUi()
+    addLog('page', `described ${elements.length} interactive elements`)
+    return elements
+  },
+  interact(ref: string, action: Parameters<typeof interact>[1]) {
+    const result = interact(ref, action)
+    const what = action.tag === 'fill' ? `fill ${ref} with ${JSON.stringify(action.val)}` : `click ${ref}`
+    const outcome = result.tag === 'ok' ? `"${(result.val as UiElement).name}"` : `failed: ${result.val}`
+    addLog('page', `${what} → ${outcome}`)
+    return result
+  },
 }
 
 // Route the component's stdout/stderr (console.log / console.error in Hono) to the page
@@ -97,8 +110,20 @@ async function startServer() {
   setStatus(serverStatus, 'ok', `running (${ms} ms to start)`)
   addLog('info', `Hono wasm server started in ${ms} ms`)
   // A fetch()-style client that calls the component's wasi:http/incoming-handler directly
-  return new InMemoryHttpClient(component.incomingHandler)
+  const client = new InMemoryHttpClient(component.incomingHandler)
+  // The server can click buttons on this page, and some of those buttons call the server.
+  // The wasm can't be re-entered in the middle of a request, so calls wait their turn.
+  let queue: Promise<unknown> = Promise.resolve()
+  return {
+    fetch(request: Request) {
+      const response = queue.then(() => client.fetch(request))
+      queue = response.catch(() => {})
+      return response
+    },
+  }
 }
+
+type Server = Awaited<ReturnType<typeof startServer>>
 
 // --- 3. Connect to the relay so requests from curl reach this tab ----------------
 
@@ -111,7 +136,7 @@ const storage = {
   set: (id: string) => { try { sessionStorage.setItem(ID_KEY, id) } catch {} },
 }
 
-function connectTunnel(server: InMemoryHttpClient) {
+function connectTunnel(server: Server) {
   const id = storage.get()
   const ws = new WebSocket(
     `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/tunnel${id ? `?id=${id}` : ''}`,
@@ -171,7 +196,7 @@ function connectTunnel(server: InMemoryHttpClient) {
 
 // --- Page buttons: call the same server in-page, no network involved --------------
 
-function wireButtons(server: InMemoryHttpClient) {
+function wireButtons(server: Server) {
   document.querySelectorAll<HTMLButtonElement>('[data-try]').forEach((btn) => {
     btn.disabled = false
     btn.onclick = async () => {

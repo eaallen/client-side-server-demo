@@ -86,7 +86,8 @@ anything sensitive behind it.
 3. **The server drives regular JS on the page.** `wit/component.wit` declares a `page` interface
    (`log`, `echo`, `set-color`, `read-note`) that the component imports. `web/main.ts` implements it
    with plain DOM code, so Hono handlers can call `echo(text)` or `readNote()` directly. The
-   component's stdout/stderr are also piped into the page's activity log.
+   component's stdout/stderr are also piped into the page's activity log. With `describe-ui` and
+   `interact`, the server can also find and use any button or text field on the page.
 
 ```
 curl ──HTTP──▶ relay :8000 ──WebSocket──▶ browser tab
@@ -108,6 +109,39 @@ curl ──HTTP──▶ relay :8000 ──WebSocket──▶ browser tab
 | `PUT /color/:color` | Sets the page's accent color; `400` if it isn't a valid CSS color |
 | `GET /note` | Returns whatever is typed in the page's note box |
 | `GET /log?msg=…` | Writes a line to the page's activity log |
+| `GET /ui` | `{ instructions, elements }`: how to use the routes below (with examples using real refs), plus every visible clickable / typeable element with its `ref`, `role`, `name`, `section`, `value`, `disabled` and `actions` |
+| `POST /ui/:ref/click` | Clicks that element like a user would; returns its updated description |
+| `POST /ui/:ref/fill` | Types the request body into a text field |
+
+### Driving the UI from the server
+
+`describe-ui` and `interact` in the WIT `page` interface give the server the same view of the
+page a person has, roughly an accessibility tree, implemented in
+[web/ui-automation.ts](web/ui-automation.ts):
+
+```bash
+curl localhost:8000/ui
+```
+
+```bash
+curl -X POST localhost:8000/ui/e10/click
+```
+
+```bash
+curl -d 'typed by the server' localhost:8000/ui/e5/fill
+```
+
+- `GET /ui` returns `instructions` alongside `elements`, so an AI agent can learn the routes,
+  ready-to-use examples and rules from that one response.
+- Each element gets a ref like `e10` that stays the same while the element exists.
+- `click` focuses the element and fires a real click, and `fill` sets the text and fires `input` and
+  `change`. The element briefly gets an outline so you can watch it happen.
+- There are no back doors into widgets. Tic-tac-toe ([web/tictactoe.ts](web/tictactoe.ts)) still
+  exposes nothing, so the server plays it only by clicking cells, under the same rules as a person:
+  filled cells and finished games are disabled, so those clicks fail with `400`.
+- Clicking an in-page button like "GET /hello" makes the page call the server while the server is
+  still handling the click. The wasm can't be re-entered, so [web/main.ts](web/main.ts) queues server
+  calls and that request runs right after.
 
 ## Build pipeline
 

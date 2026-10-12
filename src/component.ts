@@ -1,9 +1,15 @@
 import { Hono } from 'hono'
 import { fire } from '@bytecodealliance/jco-std/wasi/0.2.12/http/adapters/hono/server'
 // Implemented by plain JS on the web page (see web/main.ts), declared in wit/component.wit
-import { log, echo, setColor, readNote } from 'demo:browser-server/page'
+import { log, echo, setColor, readNote, describeUi, interact } from 'demo:browser-server/page'
 
 const app = new Hono()
+
+const UI_ROUTES = [
+  'GET  /ui               lists every clickable / typeable element on the page',
+  'POST /ui/:ref/click    clicks an element, e.g. /ui/e3/click',
+  'POST /ui/:ref/fill     types the request body into a text field',
+]
 
 app.use(async (c, next) => {
   // console.log inside the wasm goes to WASI stdout, which the page pipes into its log
@@ -23,6 +29,7 @@ app.get('/', (c) =>
       '  PUT  /color/:color     changes the page accent color, e.g. /color/tomato',
       '  GET  /note             reads the note box on the page',
       '  GET  /log?msg=hi       writes a line to the page activity log',
+      ...UI_ROUTES.map((line) => `  ${line}`),
       '',
     ].join('\n'),
   ),
@@ -50,6 +57,47 @@ app.get('/log', (c) => {
   log(msg)
   return c.json({ logged: msg })
 })
+
+// Drive the page's UI the way a person would: discover elements, then click or type
+// The instructions are written for an AI (or a person) that only sees this response
+app.get('/ui', (c) => {
+  const elements = describeUi()
+  const clickable = elements.find((e) => !e.disabled && e.role === 'button')
+  const fillable = elements.find((e) => !e.disabled && e.actions.includes('fill'))
+  return c.json({
+    instructions: {
+      summary:
+        'These are the interactive elements on the web page hosting this server. To change the page, ' +
+        "send a request using an element's ref. Paths are relative to the URL you used for /ui.",
+      routes: UI_ROUTES,
+      examples: [
+        clickable && `POST /ui/${clickable.ref}/click   clicks "${clickable.name}"`,
+        fillable && `POST /ui/${fillable.ref}/fill    with a plain-text body, replaces the text in "${fillable.name}"`,
+      ].filter(Boolean),
+      rules: [
+        "Only use an action listed in the element's `actions`; /fill only works on text fields.",
+        'Disabled elements cannot be clicked, the same as for a person using the page.',
+        'Each action returns { ok: true, element } with the updated element, or { ok: false, error } with status 400.',
+        'Refs reset when the page reloads. If a ref is not found, GET /ui again.',
+      ],
+    },
+    elements,
+  })
+})
+
+app.post('/ui/:ref/click', (c) => runAction(c.req.param('ref'), { tag: 'click' }))
+
+app.post('/ui/:ref/fill', async (c) => runAction(c.req.param('ref'), { tag: 'fill', val: await c.req.text() }))
+
+function runAction(ref: string, action: Parameters<typeof interact>[1]) {
+  try {
+    return Response.json({ ok: true, element: interact(ref, action) })
+  } catch (err) {
+    // jco turns an `err` result from the page into a thrown error with the message as payload
+    const message = (err as { payload?: string }).payload ?? String(err)
+    return Response.json({ ok: false, error: message }, { status: 400 })
+  }
+}
 
 fire(app)
 

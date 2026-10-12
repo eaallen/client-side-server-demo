@@ -1,8 +1,12 @@
 import { defineConfig } from 'rolldown'
 
-// Bundles the page script (plus the jco-transpiled component and WASI browser shims)
+// Bundles the page scripts: main.ts (plus the jco-transpiled component and WASI browser
+// shims) and tictactoe.ts, which is kept separate so it has no access to the server
 export default defineConfig({
-  input: 'web/main.ts',
+  input: {
+    main: 'web/main.ts',
+    tictactoe: 'web/tictactoe.ts',
+  },
   platform: 'browser',
   // only referenced by jco's Node.js fallback loader, never reached in the browser
   external: [/^node:/],
@@ -11,7 +15,8 @@ export default defineConfig({
     if (log.code !== 'MODULE_LEVEL_DIRECTIVE') handler(level, log)
   },
   output: {
-    file: 'dist/web/main.js',
+    dir: 'dist/web',
+    entryFileNames: '[name].js',
     format: 'esm',
     minify: true,
     sourcemap: true,

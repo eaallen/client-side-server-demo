@@ -139,6 +139,25 @@
       #log .msg { white-space: pre-wrap; overflow-wrap: anywhere; min-width: 0; }
       .log-request .tag, .log-page .tag { color: var(--accent); }
       .log-stderr .msg { color: #d43c3c; }
+      .ttt { display: flex; gap: 24px; align-items: center; flex-wrap: wrap; }
+      .ttt-board {
+        display: grid;
+        grid-template-columns: repeat(3, 72px);
+        grid-template-rows: repeat(3, 72px);
+        gap: 6px;
+      }
+      .ttt-cell {
+        font-size: 36px;
+        font-weight: 700;
+        padding: 0;
+        border-radius: 8px;
+      }
+      .ttt-cell:disabled { opacity: 1; }
+      .ttt-cell[data-mark='X'] { color: var(--accent); }
+      .ttt-cell[data-mark='O'] { color: var(--text); }
+      .ttt-cell.ttt-win { background: color-mix(in srgb, var(--accent) 20%, var(--code-bg)); border-color: var(--accent); }
+      .ttt-status { font-size: 18px; font-weight: 600; margin: 0 0 12px; }
+      .ttt-status.ttt-over { color: var(--accent); }
     </style>
   </head>
   <body>
@@ -170,6 +189,8 @@
         <pre data-curl="curl -X PUT $URL/color/tomato">curl -X PUT http://localhost:8000/color/tomato</pre>
         <pre data-curl="curl $URL/note">curl http://localhost:8000/note</pre>
         <pre data-curl="curl '$URL/log?msg=hello+page'">curl 'http://localhost:8000/log?msg=hello+page'</pre>
+        <pre data-curl="curl $URL/ui">curl http://localhost:8000/ui</pre>
+        <pre data-curl="curl -X POST $URL/ui/e10/click">curl -X POST http://localhost:8000/ui/e10/click</pre>
       </section>
 
       <section class="wide">
@@ -180,11 +201,23 @@
         <textarea id="note">Type here, then curl /note</textarea>
       </section>
 
+      <section class="wide" id="tictactoe">
+        <h2>Tic-tac-toe <span class="sub">· no API, only clicks (yours, or the server's via /ui)</span></h2>
+        <div class="ttt">
+          <div class="ttt-board" role="group" aria-label="Tic-tac-toe board"></div>
+          <div>
+            <p class="ttt-status" aria-live="polite"></p>
+            <button type="button" class="ttt-reset">New game</button>
+          </div>
+        </div>
+      </section>
+
       <section class="wide">
         <h2>Activity log <span class="sub">· console.log from inside the wasm, requests, and page calls</span></h2>
         <ol id="log"></ol>
       </section>
     </main>
     <script type="module" src="/main.js"></script>
+    <script type="module" src="/tictactoe.js"></script>
   </body>
 </html>

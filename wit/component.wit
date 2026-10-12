@@ -11,6 +11,40 @@ interface page {
     set-color: func(color: string) -> bool;
     /// Read whatever the visitor has typed into the note box on the page.
     read-note: func() -> string;
+
+    /// Something on the page a person could click or type into.
+    record ui-element {
+        /// Reference to pass to `interact`, e.g. "e7". Stable while the element exists.
+        ref: string,
+        /// ARIA role, e.g. "button", "textbox", "link", "checkbox".
+        role: string,
+        /// Accessible name: aria-label, <label>, or visible text.
+        name: string,
+        /// Heading of the page section the element is in.
+        section: string,
+        /// Current text for text fields.
+        value: option<string>,
+        disabled: bool,
+        /// What `interact` can do with it.
+        actions: list<action-kind>,
+    }
+
+    enum action-kind {
+        click,
+        fill,
+    }
+
+    variant action {
+        /// Click it like a user would (respects disabled state).
+        click,
+        /// Replace the text of a text field, like a user typing.
+        fill(string),
+    }
+
+    /// List every visible interactive element on the page.
+    describe-ui: func() -> list<ui-element>;
+    /// Perform an action on an element from `describe-ui`. Returns its updated description.
+    interact: func(ref: string, action: action) -> result<ui-element, string>;
 }
 
 world component {
