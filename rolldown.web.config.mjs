@@ -13,5 +13,7 @@ export default defineConfig({
   output: {
     file: 'dist/web/main.js',
     format: 'esm',
+    minify: true,
+    sourcemap: true,
   },
 })

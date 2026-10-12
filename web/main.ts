@@ -104,17 +104,32 @@ async function startServer() {
 
 type TunnelRequest = { id: string; method: string; url: string; headers: [string, string][]; body: string | null }
 
+// In production every tab gets its own public URL; remember it so a reload keeps it
+const ID_KEY = 'tunnel-id'
+const storage = {
+  get: () => { try { return sessionStorage.getItem(ID_KEY) } catch { return null } },
+  set: (id: string) => { try { sessionStorage.setItem(ID_KEY, id) } catch {} },
+}
+
 function connectTunnel(server: InMemoryHttpClient) {
-  const ws = new WebSocket(`${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/tunnel`)
+  const id = storage.get()
+  const ws = new WebSocket(
+    `${location.protocol === 'https:' ? 'wss' : 'ws'}://${location.host}/tunnel${id ? `?id=${id}` : ''}`,
+  )
+  // Idle WebSockets get dropped by proxies, so ping every 30s
+  const keepalive = setInterval(() => ws.readyState === WebSocket.OPEN && ws.send('ping'), 30_000)
 
   ws.onopen = () => setStatus(tunnelStatus, 'ok', 'connected')
   ws.onclose = () => {
+    clearInterval(keepalive)
     setStatus(tunnelStatus, 'error', 'disconnected, retrying…')
     setTimeout(() => connectTunnel(server), 1000)
   }
   ws.onmessage = async (event) => {
+    if (event.data === 'pong') return
     const msg = JSON.parse(event.data)
     if (msg.type === 'info') {
+      if (msg.id) storage.set(msg.id)
       $('curl-base').textContent = msg.tunnelUrl
       document.querySelectorAll('[data-curl]').forEach((el) => {
         el.textContent = (el as HTMLElement).dataset.curl!.replaceAll('$URL', msg.tunnelUrl)
@@ -123,7 +138,7 @@ function connectTunnel(server: InMemoryHttpClient) {
     }
     if (msg.type === 'replaced') {
       setStatus(tunnelStatus, 'error', 'another tab took over')
-      ws.onclose = null
+      ws.onclose = () => clearInterval(keepalive)
       return
     }
     const req = msg as TunnelRequest

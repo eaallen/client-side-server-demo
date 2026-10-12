@@ -4,3 +4,5 @@ types/generated/
 .claude/
 .DS_Store
 *.log
+.wrangler/
+.dev.vars*

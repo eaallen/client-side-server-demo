@@ -5,6 +5,7 @@
 //   curl ──HTTP──▶ relay :8000 ──WebSocket──▶ browser tab (Hono in wasm) ──▶ back to curl
 //
 // The relay never runs your Hono code. It also serves the demo page on PAGE_PORT.
+// cloudflare/worker.ts is the production version of this file.
 import { randomUUID } from 'node:crypto'
 import { Hono } from 'hono'
 import { serve } from '@hono/node-server'
@@ -35,7 +36,8 @@ page.get(
       ws.send(JSON.stringify({ type: 'info', tunnelUrl: TUNNEL_URL }))
       console.log('browser tab connected, curl away!')
     },
-    onMessage(event) {
+    onMessage(event, ws) {
+      if (event.data === 'ping') return ws.send('pong')
       const msg = JSON.parse(String(event.data))
       const waiter = pending.get(msg.id)
       if (!waiter) return
@@ -55,9 +57,7 @@ page.get(
     },
   })),
 )
-page.use('/wasm/*', serveStatic({ root: './dist/transpiled', rewriteRequestPath: (p) => p.replace(/^\/wasm/, '') }))
-page.use('/main.js', serveStatic({ path: './dist/web/main.js' }))
-page.get('/', serveStatic({ path: './web/index.html' }))
+page.use('*', serveStatic({ root: './dist/public' }))
 
 const pageServer = serve({ fetch: page.fetch, port: PAGE_PORT })
 injectWebSocket(pageServer)

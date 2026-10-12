@@ -6,11 +6,14 @@
     "build:component": "rolldown -c && jco componentize -w wit -o dist/component.wasm dist/component.js",
     "build:transpile": "jco transpile dist/component.wasm -o dist/transpiled --name server --instantiation async",
     "build:web": "rolldown -c rolldown.web.config.mjs",
-    "build": "npm run build:component && npm run build:transpile && npm run build:web",
+    "build": "npm run build:component && npm run build:transpile && npm run build:web && npm run build:public",
     "start": "node relay/server.mjs",
     "demo": "npm run build && npm start",
     "types": "jco guest-types wit -o types/generated -q",
-    "typecheck": "npm run types && tsc -p ."
+    "typecheck": "npm run types && tsc -p . && tsc -p cloudflare",
+    "build:public": "node scripts/assemble.mjs",
+    "cf:dev": "npm run build && wrangler dev",
+    "deploy": "npm run build && wrangler deploy"
   },
   "keywords": [],
   "author": "",
@@ -26,7 +29,9 @@
     "@bytecodealliance/jco": "^1.37.0",
     "@bytecodealliance/jco-std": "^0.7.0",
     "@bytecodealliance/preview2-shim": "^0.28.0",
+    "@cloudflare/workers-types": "^5.20261012.1",
     "rolldown": "^1.2.13",
-    "typescript": "^7.0.2"
+    "typescript": "^7.0.2",
+    "wrangler": "^4.149.0"
   }
 }

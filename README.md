@@ -42,6 +42,37 @@ curl 'localhost:8000/log?msg=hello+page'
 Watch the page: the echo panel updates, the accent color changes, and the activity log shows
 each request plus every `console.log` from inside the wasm.
 
+## Production (Cloudflare)
+
+Live at **<https://client-side-server-demo.cotc.workers.dev>**. Open it and each tab gets its own
+public URL, e.g. `https://client-side-server-demo.cotc.workers.dev/s/<tab-id>/hello`, shown on the page.
+
+```bash
+npm run cf:dev
+```
+
+```bash
+npm run deploy
+```
+
+`cf:dev` runs the production setup locally on <http://localhost:8787>. `deploy` builds and runs
+`wrangler deploy` (log in once with `npx wrangler login`).
+
+In production, [cloudflare/worker.ts](cloudflare/worker.ts) replaces the local relay:
+
+- **Static assets.** `dist/public/` (page, minified `main.js`, wasm) is served by Workers static
+  assets. Cloudflare compresses the 12.6 MB wasm with brotli on the fly.
+- **One Durable Object per tab.** A tab connects to `/tunnel` and gets a random 16-character id. The
+  `TabTunnel` Durable Object for that id holds the tab's WebSocket, and requests to `/s/<id>/*` are
+  forwarded to it. The tab keeps its id in `sessionStorage`, so a reload keeps the same URL.
+- **Limits.** 1 MB request bodies, 30 s timeout, `503` when no tab is connected. Cloudflare's
+  `cf-*` and `x-forwarded-*` headers are stripped, so the tab never sees the caller's IP.
+- **Keepalive.** The tab pings every 30 s. The Durable Object auto-replies without waking up
+  (WebSocket hibernation), so idle tabs cost nothing.
+
+Anyone who knows a tab's URL can send it requests. That's the point of the demo, but don't put
+anything sensitive behind it.
+
 ## What the demo shows
 
 1. **A server running in the browser.** `src/component.ts` is a normal Hono app. It's built into
@@ -84,9 +115,11 @@ curl ──HTTP──▶ relay :8000 ──WebSocket──▶ browser tab
 | --- | --- |
 | `build:component` | `rolldown -c` bundles `src/component.ts`, then `jco componentize` builds `dist/component.wasm` |
 | `build:transpile` | `jco transpile --instantiation async` emits browser-loadable JS + core wasm into `dist/transpiled/` |
-| `build:web` | Rolldown bundles `web/main.ts` (and the WASI browser shims) into `dist/web/main.js` |
-| `start` | Starts the relay: page on `:3000`, curl endpoint on `:8000` (override with `PAGE_PORT` / `TUNNEL_PORT`) |
-| `typecheck` | Generates TS types from the WIT with `jco guest-types`, then runs `tsc` (after a build) |
+| `build:web` | Rolldown bundles and minifies `web/main.ts` (and the WASI browser shims) into `dist/web/main.js` |
+| `build:public` | Collects the page, `main.js` and the wasm files into `dist/public/` |
+| `start` | Starts the local relay: page on `:3000`, curl endpoint on `:8000` (override with `PAGE_PORT` / `TUNNEL_PORT`) |
+| `cf:dev` / `deploy` | Build, then `wrangler dev` / `wrangler deploy` |
+| `typecheck` | Generates TS types from the WIT with `jco guest-types`, then runs `tsc` on the app, the page and the Worker (after a build) |
 
 ## Differences from the Hono guide
 
@@ -95,5 +128,5 @@ curl ──HTTP──▶ relay :8000 ──WebSocket──▶ browser tab
   matching `wasi/0.2.12` Hono adapter.
 - **A custom WIT import.** The world also imports `demo:browser-server/page`, so the component
   can't run under `jco serve` (it has nothing to provide that interface). It needs the page.
-- The component is about 13 MB because it embeds the StarlingMonkey JS engine. It loads in well
-  under a second from localhost.
+- The component is about 13 MB (about 4 MB compressed) because it embeds the StarlingMonkey JS
+  engine. `jco opt` only shaved 4% off it and added about 2 minutes to the build, so it isn't used.

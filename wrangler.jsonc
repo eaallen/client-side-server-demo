@@ -1,0 +1,17 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "client-side-server-demo",
+  "main": "cloudflare/worker.ts",
+  "compatibility_date": "2026-09-01",
+  // The demo page, main.js and the wasm files (built by `npm run build`)
+  "assets": {
+    "directory": "dist/public",
+    "run_worker_first": ["/tunnel", "/s/*"]
+  },
+  // One Durable Object per browser tab, holding that tab's WebSocket
+  "durable_objects": {
+    "bindings": [{ "name": "TABS", "class_name": "TabTunnel" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["TabTunnel"] }],
+  "observability": { "enabled": true }
+}
