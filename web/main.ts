@@ -133,14 +133,14 @@ const AI_PROMPT = `You can use a live web page by sending it HTTP requests. This
 
 Base URL: $URL
 
-Use curl or any HTTP client (not a browser tool). Every path below is added to the base URL. Requests only work while my tab is open: a 503 means the tab is closed, so ask me to reopen the page.
+Every route works with a plain GET request, so any HTTP client or fetch tool will do (POST also works). Do not use a browser tool. Every path below is added to the base URL. Requests only work while my tab is open: a 503 means the tab is closed, so ask me to reopen the page.
 
 Steps:
 1. GET $URL/help to see every route this server has.
 2. GET $URL/ui to see everything on the page that can be clicked or typed into. It returns JSON with "instructions" and "elements". Each element has a "ref" (like "e10"), its "role", its "name", the "section" it is in, its "disabled" state and the "actions" it supports.
 3. To use an element, send a request with its ref:
-   - click it: POST $URL/ui/<ref>/click
-   - type into a text field (replaces its text): POST $URL/ui/<ref>/fill with the text as a plain-text body, for example: curl -d 'some text' $URL/ui/<ref>/fill
+   - click it: GET $URL/ui/<ref>/click
+   - type into a text field (replaces its text): GET $URL/ui/<ref>/fill?text=<url-encoded text>, for example: curl -G --data-urlencode 'text=some text' $URL/ui/<ref>/fill
 4. Each action replies with { "ok": true, "element": ... } showing the element afterwards, or { "ok": false, "error": ... } with status 400. Disabled elements cannot be clicked, the same as for a person.
 5. Refs change when the page reloads, and the page changes as you act, so GET $URL/ui again whenever you are unsure what is on screen. This is how you see the result of what you did.
 
@@ -244,8 +244,9 @@ function wireButtons(server: Server) {
     btn.disabled = false
     btn.onclick = async () => {
       const [method, path] = btn.dataset.try!.split(' ')
-      const body = method === 'POST' ? `hello from the page at ${new Date().toLocaleTimeString()}` : null
-      const res = await server.fetch(new Request(`http://in-page${path}`, { method, body }))
+      const url = new URL(`http://in-page${path}`)
+      if (path === '/echo') url.searchParams.set('text', `hello from the page at ${new Date().toLocaleTimeString()}`)
+      const res = await server.fetch(new Request(url, { method }))
       addLog('request', `page ${method} ${path} → ${res.status}: ${(await res.text()).trim()}`)
     }
   })

@@ -7,8 +7,8 @@ const app = new Hono()
 
 const UI_ROUTES = [
   'GET  /ui               lists every clickable / typeable element on the page',
-  'POST /ui/:ref/click    clicks an element, e.g. /ui/e3/click',
-  'POST /ui/:ref/fill     types the request body into a text field',
+  'GET  /ui/:ref/click    clicks an element, e.g. /ui/e3/click (POST also works)',
+  'GET  /ui/:ref/fill?text=...  types text into a text field (or POST the text as the body)',
 ]
 
 app.use(async (c, next) => {
@@ -26,8 +26,8 @@ const help = (c: Context) =>
       'Try:',
       '  GET  /help             this message (same as GET /)',
       '  GET  /hello            JSON response (same as the Hono WASI docs)',
-      '  POST /echo             body is shown on the web page and echoed back',
-      '  PUT  /color/:color     changes the page accent color, e.g. /color/tomato',
+      '  GET  /echo?text=hi     shows the text on the web page and echoes it back (or POST a body)',
+      '  GET  /color/:color     changes the page accent color, e.g. /color/tomato (PUT also works)',
       '  GET  /note             reads the note box on the page',
       '  GET  /log?msg=hi       writes a line to the page activity log',
       ...UI_ROUTES.map((line) => `  ${line}`),
@@ -40,14 +40,15 @@ app.get('/help', help)
 
 app.get('/hello', (c) => c.json({ message: 'Hello from WebAssembly!' }))
 
-app.post('/echo', async (c) => {
-  const text = await c.req.text()
+// Everything works with plain GET (query string) so it can be used from a URL; POST/PUT also work
+app.on(['GET', 'POST'], '/echo', async (c) => {
+  const text = c.req.query('text') ?? (await c.req.text())
   echo(text)
   log(`echoed ${text.length} chars`)
   return c.text(`${text}\n`)
 })
 
-app.on(['GET', 'PUT'], '/color/:color', (c) => {
+app.on(['GET', 'PUT', 'POST'], '/color/:color', (c) => {
   const color = c.req.param('color')
   const ok = setColor(color)
   return c.json({ ok, color }, ok ? 200 : 400)
@@ -74,11 +75,12 @@ app.get('/ui', (c) => {
         "send a request using an element's ref. Paths are relative to the URL you used for /ui.",
       routes: UI_ROUTES,
       examples: [
-        clickable && `POST /ui/${clickable.ref}/click   clicks "${clickable.name}"`,
-        fillable && `POST /ui/${fillable.ref}/fill    with a plain-text body, replaces the text in "${fillable.name}"`,
+        clickable && `GET /ui/${clickable.ref}/click   clicks "${clickable.name}"`,
+        fillable && `GET /ui/${fillable.ref}/fill?text=hello   replaces the text in "${fillable.name}"`,
       ].filter(Boolean),
       rules: [
         "Only use an action listed in the element's `actions`; /fill only works on text fields.",
+        'Every route works with GET. Put text in the query string and URL-encode it (curl -G --data-urlencode "text=a b" ...). POST also works.',
         'Disabled elements cannot be clicked, the same as for a person using the page.',
         'Each action returns { ok: true, element } with the updated element, or { ok: false, error } with status 400.',
         'Refs reset when the page reloads. If a ref is not found, GET /ui again.',
@@ -88,9 +90,11 @@ app.get('/ui', (c) => {
   })
 })
 
-app.post('/ui/:ref/click', (c) => runAction(c.req.param('ref'), { tag: 'click' }))
+app.on(['GET', 'POST'], '/ui/:ref/click', (c) => runAction(c.req.param('ref'), { tag: 'click' }))
 
-app.post('/ui/:ref/fill', async (c) => runAction(c.req.param('ref'), { tag: 'fill', val: await c.req.text() }))
+app.on(['GET', 'POST'], '/ui/:ref/fill', async (c) =>
+  runAction(c.req.param('ref'), { tag: 'fill', val: c.req.query('text') ?? (await c.req.text()) }),
+)
 
 function runAction(ref: string, action: Parameters<typeof interact>[1]) {
   try {

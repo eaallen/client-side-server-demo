@@ -111,7 +111,7 @@
         overflow-wrap: anywhere;
         margin-bottom: 12px;
       }
-      #echo:empty::before { content: 'POST something to /echo and it shows up here'; color: var(--muted); font-size: 14px; }
+      #echo:empty::before { content: 'Call /echo?text=... and it shows up here'; color: var(--muted); font-size: 14px; }
       #echo.flash { animation: flash 0.8s ease-out; }
       @keyframes flash { from { border-color: var(--accent); background: color-mix(in srgb, var(--accent) 15%, transparent); } }
       textarea {
@@ -179,7 +179,7 @@
         <p>Call the server right here in the page (no network, straight into the wasm):</p>
         <div class="buttons">
           <button data-try="GET /hello" disabled>GET /hello</button>
-          <button data-try="POST /echo" disabled>POST /echo</button>
+          <button data-try="GET /echo" disabled>GET /echo</button>
           <button data-try="GET /color/rebeccapurple" disabled>GET /color/rebeccapurple</button>
           <button data-try="GET /note" disabled>GET /note</button>
         </div>
@@ -190,12 +190,12 @@
         <p>Requests to <code id="curl-base">http://localhost:8000</code> are relayed to this tab.</p>
         <pre data-curl="curl $URL/help">curl http://localhost:8000/help</pre>
         <pre data-curl="curl $URL/hello">curl http://localhost:8000/hello</pre>
-        <pre data-curl="curl -d 'hi from my terminal' $URL/echo">curl -d 'hi from my terminal' http://localhost:8000/echo</pre>
-        <pre data-curl="curl -X PUT $URL/color/tomato">curl -X PUT http://localhost:8000/color/tomato</pre>
+        <pre data-curl="curl -G --data-urlencode 'text=hi from my terminal' $URL/echo">curl -G --data-urlencode 'text=hi from my terminal' http://localhost:8000/echo</pre>
+        <pre data-curl="curl $URL/color/tomato">curl http://localhost:8000/color/tomato</pre>
         <pre data-curl="curl $URL/note">curl http://localhost:8000/note</pre>
         <pre data-curl="curl '$URL/log?msg=hello+page'">curl 'http://localhost:8000/log?msg=hello+page'</pre>
         <pre data-curl="curl $URL/ui">curl http://localhost:8000/ui</pre>
-        <pre data-curl="curl -X POST $URL/ui/e10/click">curl -X POST http://localhost:8000/ui/e10/click</pre>
+        <pre data-curl="curl $URL/ui/e10/click">curl http://localhost:8000/ui/e10/click</pre>
       </section>
 
       <section class="wide">
@@ -208,7 +208,7 @@
 
       <section class="wide">
         <h2><b>3</b> · The page, driven by the server</h2>
-        <label>Echo panel (written by <code>POST /echo</code>)</label>
+        <label>Echo panel (written by <code>/echo</code>)</label>
         <div id="echo"></div>
         <label for="note">Note (read by <code>GET /note</code>)</label>
         <textarea id="note">Type here, then curl /note</textarea>

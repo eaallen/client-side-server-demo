@@ -28,11 +28,11 @@ curl localhost:8000/hello
 ```
 
 ```bash
-curl -d 'hi from my terminal' localhost:8000/echo
+curl -G --data-urlencode 'text=hi from my terminal' localhost:8000/echo
 ```
 
 ```bash
-curl -X PUT localhost:8000/color/tomato
+curl localhost:8000/color/tomato
 ```
 
 ```bash
@@ -113,13 +113,13 @@ curl ──HTTP──▶ relay :8000 ──WebSocket──▶ browser tab
 | --- | --- |
 | `GET /help` (or `GET /`) | Lists the routes |
 | `GET /hello` | `{"message":"Hello from WebAssembly!"}` (same as the Hono docs) |
-| `POST /echo` | Shows the body in the page's echo panel and echoes it back |
-| `PUT /color/:color` | Sets the page's accent color; `400` if it isn't a valid CSS color |
+| `GET /echo?text=…` | Shows the text in the page's echo panel and echoes it back (`POST` with a body also works) |
+| `GET /color/:color` | Sets the page's accent color; `400` if it isn't a valid CSS color (`PUT` also works) |
 | `GET /note` | Returns whatever is typed in the page's note box |
 | `GET /log?msg=…` | Writes a line to the page's activity log |
 | `GET /ui` | `{ instructions, elements }`: how to use the routes below (with examples using real refs), plus every visible clickable / typeable element with its `ref`, `role`, `name`, `section`, `value`, `disabled` and `actions` |
-| `POST /ui/:ref/click` | Clicks that element like a user would; returns its updated description |
-| `POST /ui/:ref/fill` | Types the request body into a text field |
+| `GET /ui/:ref/click` | Clicks that element like a user would; returns its updated description (`POST` also works) |
+| `GET /ui/:ref/fill?text=…` | Types the text into a text field (`POST` with the text as the body also works) |
 
 ### Driving the UI from the server
 
@@ -132,11 +132,11 @@ curl localhost:8000/ui
 ```
 
 ```bash
-curl -X POST localhost:8000/ui/e10/click
+curl localhost:8000/ui/e10/click
 ```
 
 ```bash
-curl -d 'typed by the server' localhost:8000/ui/e5/fill
+curl -G --data-urlencode 'text=typed by the server' localhost:8000/ui/e5/fill
 ```
 
 - `GET /ui` returns `instructions` alongside `elements`, so an AI agent can learn the routes,
